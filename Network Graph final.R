@@ -17,7 +17,7 @@ ui <- fluidPage(
 
 server <- function(input, output) {
   
-  #CSv file connect
+  # CSV file connect for hotel in different city
   data <- read.csv("E:/WORK/HOTEL DATA/4-starhotelinRiga.csv")
   data1 <- read.csv("E:/WORK//HOTEL DATA/4-starhotelinVienna.csv")
   data2 <- read.csv("E:/WORK/HOTEL DATA/4-starhotelinAmsterdam.csv")
@@ -118,7 +118,7 @@ server <- function(input, output) {
     TargetnodeSizeforALL=33
     NeibornodesizeforALL=25.5
     
-    hjustnode=0.5
+    hjustnode=0.52
     
     ggraph(graph, layout = layout) +
       geom_edge_link(aes(label = rating), label_colour = "gold", vjust = vjust, hjust = hjust,
