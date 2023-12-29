@@ -17,7 +17,7 @@ ui <- fluidPage(
 
 server <- function(input, output) {
   
-  # CSV file connect for hotel in different city
+  # CSV file connect for hotel in different city of Europe
   data <- read.csv("E:/WORK/HOTEL DATA/4-starhotelinRiga.csv")
   data1 <- read.csv("E:/WORK//HOTEL DATA/4-starhotelinVienna.csv")
   data2 <- read.csv("E:/WORK/HOTEL DATA/4-starhotelinAmsterdam.csv")
