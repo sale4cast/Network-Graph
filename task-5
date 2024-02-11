@@ -1,0 +1,161 @@
+library(shiny)
+library(igraph)
+library(tidygraph)
+library(ggraph)
+library(tibble)
+library(stringr)
+library(ggplot2)
+library(tidyverse)
+
+ui <- fluidPage(
+  shiny::tags$head(
+    shiny::tags$meta(name = "viewport", content = "width=device-width, initial-scale=0.5")
+  ),
+  span(textOutput("notFound"), style = "color: red; text-align: center;"),
+  uiOutput("plot")
+)
+
+server <- function(input, output) {
+  
+  
+  data2 <- tibble(
+    HotelName = c(
+      "DoubleTree by Hilton Amsterdam Centraal Station",
+      "DoubleTree by Hilton Amsterdam Centraal Station",
+      "Leonardo Hotel Amsterdam Rembrandtpark",
+      "DoubleTree by Hilton Amsterdam Centraal Station",
+      "Leonardo Hotel Amsterdam Rembrandtpark",
+      "CorendonAmsterdamNew-West, a Tribute PortfolioHotelCorendon Amsterdam New-West, a Tribute Portfolio Hotel",
+      "DoubleTree by Hilton Amsterdam Centraal Station",
+      "Leonardo Hotel Amsterdam Rembrandtpark",
+      "CorendonAmsterdamNew-West, a Tribute PortfolioHotelCorendon Amsterdam New-West, a Tribute Portfolio Hotel",
+      "Novotel Amsterdam City"
+    ),
+    Ratings  = c(1.5, 7.8, 4.1, 3.8, 5.4, 6.2, 8.2, 5.4, 6.2, 8.2),
+    Prices = c("$61,525", "$41,200", "$25,000", "$61,525", "$41,200", "$25,000", "$25,000", "$61,525", "$41,200", "$25,000"),
+    Reviews = c("2,901", "2,500", "1,500", "1,300", "2,500", "1,500", "1,300", "1,300", "2,500", "1,500"),
+    RoomType = c("Single", "Double", "Double", "Triple", "Triple", "Triple", "Family", "Family", "Family", "Family"),
+  )
+
+  # data2 <- read.csv("C:/Users/prime/Documents/R/Task/3-star hotel in Riga.csv")
+  
+  
+  # Only single room type not implemented
+  if (length(data2$RoomType) == 1 || length(data2$RoomType)==0) {
+    output$notFound <- renderText("Can't execute the code with one hotel")
+  }
+  # Ratings  value should be positive
+  else if(any(data2$Ratings  <= 0)){
+    output$notFound <- renderText("Ratings  must be possitive")
+  }
+  else {
+    # initialize the target hotel
+    targetHotel <- "DoubleTree by Hilton Amsterdam Centraal Station"
+    targetHotelRatings  <- 5.5
+    # selected columns
+    data <- data2 %>% select(c(HotelName, Ratings, Prices, Reviews, RoomType))
+    # seperate lists based on RoomType
+    hotelInfo <- split(data, data$RoomType)
+    hotelInfo <- lapply(hotelInfo, function(hotel){
+      if(!(targetHotel %in% hotel$HotelName)){
+        hotel <- rbind(tibble(HotelName = targetHotel, Ratings  = targetHotelRatings , Prices = "", Reviews = "", RoomType = unique(hotel$RoomType)), hotel)
+      }
+      return(hotel[1:min(length(hotel$HotelName), 10), ])
+    })
+    # generate plot
+    generatePlot <- function(targetHotel, hotelInfo) {
+      # select index of target hotel
+      rowIndexOfTargetHotel <- which(hotelInfo$HotelName == targetHotel)
+      # extract Ratings  number only
+      hotelInfo$Ratings  <- updateRatings  <- str_remove_all(hotelInfo$Ratings , "[^0-9.]")
+      # separate target hotel
+      edgeRatings <- updateRatings [-rowIndexOfTargetHotel]
+      # display first three words of hotel name 
+      firstThreeWords <- sapply(str_split(hotelInfo$HotelName, "\\s+"), function(words) paste(words[1:3], collapse = " "))
+      # nodes
+      nodes <- tibble(id = 1:length(hotelInfo$HotelName), label = firstThreeWords)
+      # edges
+      edges <- tibble(
+        from = rep(rowIndexOfTargetHotel, length(hotelInfo$HotelName) - 1),
+        to = setdiff(1:length(hotelInfo$HotelName), rowIndexOfTargetHotel),
+        Ratings  = edgeRatings 
+      )
+      # graph
+      graph <- tbl_graph(nodes = nodes, edges = edges)
+      # numeric edgeRatings  in graph
+      E(graph)$edge_size <- as.numeric(edgeRatings)
+      # layout algorithm
+      layout <- layout_with_fr(graph, weights = E(graph)$edge_size)
+      # plot the graph
+      ggraph(graph, layout = layout) +
+        # edge links
+        geom_edge_link(aes(label=Ratings ),
+                       label_colour = "gold",
+                       color = "lightgrey", width=1,
+                       alpha=1/5
+        ) +
+        # node points
+        geom_node_point(aes(color='red')
+        ) +
+        # target node point
+        geom_node_point(aes(x = layout[rowIndexOfTargetHotel, 1], y = layout[rowIndexOfTargetHotel, 2]),
+                        color="green" 
+        ) +
+        # hotel names label
+        geom_text(aes(x = layout[, 1], y = layout[, 2], label = str_wrap(nodes$label, width = 13)),
+                  color='white', vjust=0.2, hjust=0.5,
+                  fontface=ifelse(nodes$id == rowIndexOfTargetHotel,"bold", "bold"),
+                  size = ifelse(nodes$id == rowIndexOfTargetHotel, ifelse(length(hotelInfo$HotelName) == 2, 3, 3.3),
+                                ifelse(length(hotelInfo$HotelName) == 2, 2.5, 2.8)), check_overlap = TRUE
+        ) +
+        # hotel Pricess label
+        geom_node_text(aes(label = hotelInfo$Prices),
+                       color='gold',
+                       fontface=ifelse(nodes$id == rowIndexOfTargetHotel,"bold", "bold"),
+                       vjust=2.7,
+                       hjust=0.5,
+                       size = ifelse(nodes$id == rowIndexOfTargetHotel, ifelse(length(hotelInfo$HotelName) == 2, 3, 3.3),
+                                     ifelse(length(hotelInfo$HotelName) == 2, 2.5, 3.2))
+        ) +
+        # Target hotel Ratings 
+        annotate("text", x = layout[rowIndexOfTargetHotel, 1], y = layout[rowIndexOfTargetHotel, 2],
+                 label = hotelInfo$Ratings [rowIndexOfTargetHotel],vjust = 4.6, hjust = 0.5, 
+                 size = ifelse(length(hotelInfo$HotelName) == 2, 2.8, 3.5), color = "green", fontface="bold") +
+        # background display
+        theme_void() +
+        theme(
+          panel.background = element_rect(fill = "black"),
+          plot.background = element_rect(fill = "black"),
+          plot.margin = margin(0.1, 0.1, 0.1, 0.1, "cm"),
+          legend.position = "none"
+        )
+    }  
+    
+    # output rendering
+    output$plot <- renderUI({
+      lapply(1:length(hotelInfo), function(rowIndex){
+        if(length(hotelInfo[[rowIndex]]$HotelName) > 1){
+          fluidRow(
+            style = "display: flex; justify-content: center; align-items: center;",
+            column(
+              width = 12, align = "center",
+              
+              h3(paste0("Prices", names(hotelInfo)[rowIndex], "Room"), align = "center", style = "margin-bottom: 40px; margin-top: 50px"), # Added plot title
+              
+              plotOutput(paste0("plot-",rowIndex), width = "700px", height = "680px")
+            )
+          )
+        }
+      })
+    })
+    
+    lapply(1:length(hotelInfo), function(rowIndex){
+      if(length(hotelInfo[[rowIndex]]$HotelName) > 1){
+        output[[paste0("plot-",rowIndex)]] <- renderPlot(generatePlot(targetHotel, hotelInfo[[rowIndex]]))
+      }
+    })
+    
+  }
+}
+
+shinyApp(ui, server)
