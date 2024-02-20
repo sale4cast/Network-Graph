@@ -95,7 +95,6 @@ server <- function(input, output) {
         filteredHotelInfo[[room]] <- hotelInfo[[room]]
       }
     }
-    browser()
     pricesOfTargetHotel <- sapply(filteredHotelInfo, function(hotel){
       return(round(hotel %>% mutate(RatingPriceColumn = Ratings * parse_number(Prices)) %>% summarise(optimizePrice = sum(RatingPriceColumn) / sum(Ratings)) %>% pull(optimizePrice)))
     })
@@ -141,7 +140,7 @@ server <- function(input, output) {
         ) +
         # target node point
         geom_node_point(aes(x = layout[rowIndexOfTargetHotel, 1], y = layout[rowIndexOfTargetHotel, 2]),
-                        color="green" 
+                        color="black" 
         ) +
         # hotel names label
         geom_text(aes(x = layout[, 1], y = layout[, 2], label = str_wrap(nodes$label, width = 13)),
